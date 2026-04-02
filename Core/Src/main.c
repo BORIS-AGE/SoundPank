@@ -23,6 +23,9 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#define MAIN_TEXT_SIZE 14
+#define ADC_DMA_BUFFER_SIZE 40
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -41,6 +44,9 @@
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
+
 I2C_HandleTypeDef hi2c1;
 
 SPI_HandleTypeDef hspi1;
@@ -53,9 +59,11 @@ SPI_HandleTypeDef hspi2;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
+static void MX_ADC1_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -63,15 +71,81 @@ static void MX_SPI2_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-uint8_t isPartOfImageSent = 0, iteration = 0;
-uint8_t arrayWithText[MAX_LOAD_SIZE];
+uint8_t isPartOfImageSent = 0;
+uint8_t mainTextBuffer[MAX_LOAD_SIZE], titleTextBuffer[MAX_LOAD_SIZE], tempBuffer[MAX_LOAD_SIZE];
+DSTATUS isSDCardInitialized = 1;
+PLAY_MODE playMode = RADIO;
+PLAY_MODE currentActivePin = BLUETOOTH;
+const uint8_t mainTextPosition = 5, titlePosition = 1;
+uint16_t textColor = 0b000000001111, adcParamValue = 0, previousAdcParamValue = 0;
+uint16_t adcDmaBuffer[ADC_DMA_BUFFER_SIZE];
 
-void sendImageToDisplay(uint8_t* data, uint32_t len) {
-	if (iteration++ == 2) {
-		memcpy(arrayWithText, data, MAX_LOAD_SIZE);
+void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
+	if (iterationNumber == titlePosition) {
+		memcpy(titleTextBuffer, data, MAX_LOAD_SIZE);
+	}
+	if (iterationNumber == mainTextPosition) {
+		memcpy(mainTextBuffer, data, MAX_LOAD_SIZE);
 	}
 	displayImage(data, len, isPartOfImageSent);
 	isPartOfImageSent = 1;
+}
+
+void updateTitleTextOnScreen() {
+
+	char title[10] = "";
+	uint16_t offset = 0;
+
+	switch(currentActivePin) {
+		case RADIO: {
+		  memcpy(title, "Radio", sizeof("Radio"));
+		  offset = 40;
+	 	  break;
+	  	}
+	  	case BLUETOOTH: {
+	  		memcpy(title, "Bluetooth", sizeof("Bluetooth"));
+	  		offset = 40;
+	  		break;
+	  	}
+	  	case ANALOG: {
+	  		memcpy(title, "Analog", sizeof("Analog"));
+	  		offset = 30;
+	  		break;
+	  	}
+	}
+
+	memcpy(tempBuffer, titleTextBuffer, MAX_LOAD_SIZE);
+	setTextToImage(title, sizeof(title) - 1, 2, tempBuffer, offset, textColor);
+	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * titlePosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
+}
+
+void updateMainTextOnScreen() {
+	char text[8];
+	sprintf(text, "%d Hz", adcParamValue);
+
+	memcpy(tempBuffer, mainTextBuffer, MAX_LOAD_SIZE);
+	setTextToImage(text, sizeof(text) - 1, 3, tempBuffer, 50, textColor);
+	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * mainTextPosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
+
+}
+
+void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
+	processAdcDma(0, ADC_DMA_BUFFER_SIZE / 2);
+}
+
+void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc) {
+	processAdcDma(ADC_DMA_BUFFER_SIZE / 2, ADC_DMA_BUFFER_SIZE);
+}
+
+void processAdcDma(uint32_t start, uint32_t end) {
+	uint32_t temp = 0, tempParam = 0;
+
+	for(uint32_t i = start; i < end; i += 2) {
+		tempParam += adcDmaBuffer[i];
+		temp += adcDmaBuffer[i + 1];
+	}
+
+	adcParamValue = tempParam / (ADC_DMA_BUFFER_SIZE / 4);
 }
 
 /* USER CODE END 0 */
@@ -105,10 +179,12 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_I2C1_Init();
   MX_SPI1_Init();
   MX_SPI2_Init();
   MX_FATFS_Init();
+  MX_ADC1_Init();
   /* USER CODE BEGIN 2 */
 
   SEGGER_RTT_Init();
@@ -119,6 +195,8 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   uint32_t count = 0, nextTick = 0;
 
+  HAL_ADC_Start_DMA(&hadc1, adcDmaBuffer, ADC_DMA_BUFFER_SIZE);
+
   HAL_Delay(500);
 
   rda_init(&hi2c1, 103.8, 0, 0, 0, 0);
@@ -127,8 +205,9 @@ int main(void)
 
   displayInit();
 
-  DSTATUS distStatus = disk_initialize(0);
-  SEGGER_RTT_printf(0, "Disk init result - %d\n", distStatus);
+  SEGGER_RTT_printf(0, "Disk init start - %d\n", isSDCardInitialized);
+  isSDCardInitialized = disk_initialize(0);
+  SEGGER_RTT_printf(0, "Disk init result - %d\n", isSDCardInitialized);
 
 
   HAL_SPI_DeInit(&hspi2);
@@ -136,32 +215,48 @@ int main(void)
   HAL_SPI_Init(&hspi2);
 
   fs_list_root();
-  uint8_t fileIndex = 1;
 
-  read_file("1/1.bin", sendImageToDisplay);
-
-  char textToSend[] = "153.1 MHz";
-  uint16_t scaleFactor = 3;
-  setTextToImage(textToSend, sizeof(textToSend) - 1, scaleFactor, arrayWithText);
-  displayPartOfImage(IMAGE_HEIGHT_PIXELS - 1, arrayWithText, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
-
+  if(isSDCardInitialized == 0) {
+	  read_file("1/1.bin", sendImageToDisplay);
+  } else {
+	  SEGGER_RTT_printf(0, "Disk init failed\n");
+  }
 
   while (1)
   {
 
 	  if(nextTick <= uwTick) {
-//		  if(fileIndex > 11) {
-//			  fileIndex = 1;
-//		  }
-//		  char* fileName[10];
-//		  sprintf(fileName, "1/%d.bin", fileIndex++);
-//		  read_file(fileName, sendImageToDisplay);
-
+		  SEGGER_RTT_printf(0, "ADC value - %d\n", adcParamValue);
 		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  nextTick = uwTick + 1000;
-//		  SEGGER_RTT_printf(0, "Tick %d\n", count++);
 	  }
 
+	  if(currentActivePin != playMode) {
+		  char title[10];
+
+		  switch(currentActivePin) {
+		  	  case RADIO: {
+		  		  memcpy(title, "Radio", sizeof("Radio"));
+		  		  break;
+		  	  }
+		  	  case BLUETOOTH: {
+		  		  memcpy(title, "Bluetooth", sizeof("Bluetooth"));
+		  		  break;
+		  	  }
+		  	  case ANALOG: {
+		  		  memcpy(title, "Analog", sizeof("Analog"));
+		  		  break;
+		  	  }
+		  }
+		  playMode = currentActivePin;
+		  updateTitleTextOnScreen();
+	  }
+
+
+	  if(previousAdcParamValue != adcParamValue) {
+		  previousAdcParamValue = adcParamValue;
+		  updateMainTextOnScreen();
+	  }
 
 
 
@@ -215,6 +310,67 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief ADC1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_ADC1_Init(void)
+{
+
+  /* USER CODE BEGIN ADC1_Init 0 */
+
+  /* USER CODE END ADC1_Init 0 */
+
+  ADC_ChannelConfTypeDef sConfig = {0};
+
+  /* USER CODE BEGIN ADC1_Init 1 */
+
+  /* USER CODE END ADC1_Init 1 */
+
+  /** Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+  */
+  hadc1.Instance = ADC1;
+  hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV4;
+  hadc1.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc1.Init.ScanConvMode = ENABLE;
+  hadc1.Init.ContinuousConvMode = ENABLE;
+  hadc1.Init.DiscontinuousConvMode = DISABLE;
+  hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
+  hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
+  if (HAL_ADC_Init(&hadc1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+  */
+  sConfig.Channel = ADC_CHANNEL_1;
+  sConfig.Rank = 2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN ADC1_Init 2 */
+
+  /* USER CODE END ADC1_Init 2 */
+
 }
 
 /**
@@ -324,6 +480,22 @@ static void MX_SPI2_Init(void)
   /* USER CODE BEGIN SPI2_Init 2 */
 
   /* USER CODE END SPI2_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream0_IRQn);
 
 }
 

@@ -4,7 +4,7 @@
 typedef uint32_t LBA_t;
 
 DSTATUS disk_initialize(BYTE pdrv) {
-    if (sd_startup()== 0){
+    if (sd_startup() == 0){
     	sd_read_ocr();
         return 0;
     }

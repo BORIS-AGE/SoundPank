@@ -43,7 +43,7 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
-#define IMAGE_WIDTH_PIXELS 240
+#define IMAGE_WIDTH_PIXELS 240 // All values calculated as bytes. One pixel is 2 bytes
 #define IMAGE_HEIGHT_PIXELS 50
 #define MAX_LOAD_SIZE IMAGE_WIDTH_PIXELS * IMAGE_HEIGHT_PIXELS
 
@@ -93,6 +93,12 @@ void Error_Handler(void);
 #define SD_MOSI_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
+
+typedef enum {
+	RADIO = 0,
+	BLUETOOTH = 1,
+	ANALOG = 2,
+} PLAY_MODE;
 
 /* USER CODE END Private defines */
 

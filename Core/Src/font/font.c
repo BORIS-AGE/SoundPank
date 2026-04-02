@@ -10,11 +10,11 @@
 
 const uint8_t charArray[];
 uint8_t* getElement(char c);
-const uint16_t imageOffsetX = 50, pixelsWidth = 6;
+const uint16_t pixelsWidth = 6;
 
 
 // returns array of maxLoadSize with text
-void setTextToImage(char* expectedText, uint16_t textSize, uint16_t scaleFactor, uint16_t* imageBg) {
+void setTextToImage(char* expectedText, uint16_t textSize, uint16_t scaleFactor, uint16_t* imageBg, uint16_t imageOffsetX, uint16_t color) {
 
 	uint8_t expectedCharSequence[textSize * pixelsWidth];
 
@@ -36,7 +36,7 @@ void setTextToImage(char* expectedText, uint16_t textSize, uint16_t scaleFactor,
 			if(isTextedPixel) {
 				for(uint16_t s = 0; s < scaleFactor; s++) {
 					uint16_t imageIndex = (y * IMAGE_WIDTH_PIXELS) + x + s + imageOffsetX;
-					imageBg[imageIndex] = 0b000000001111;
+					imageBg[imageIndex] = color;
 				}
 			}
 		}

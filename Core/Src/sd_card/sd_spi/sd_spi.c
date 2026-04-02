@@ -1,5 +1,8 @@
 #include "sd_spi.h"
 
+#define MAX_ATTEMPTS_COUNT 100
+
+
 extern SPI_HandleTypeDef hspi2;
 
 #define CS_LOW()  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_2, GPIO_PIN_RESET)
@@ -55,23 +58,34 @@ uint8_t sd_startup(void) {
     spi_dummy_clocks();
 
     // CMD0
+    uint16_t attemptCounter = MAX_ATTEMPTS_COUNT;
     do {
         res = sd_cmd(0, 0, 0x95);
         spi_txrx(0xFF);
-    } while (res != 0x01);
+    } while (attemptCounter-- != 0 && res != 0x01);
+
+    if(attemptCounter == 0) {
+    	return 1;
+    }
 
     // CMD8
     res = sd_cmd(8, 0x1AA, 0x87);
     spi_txrx(0xFF);
 
     // ACMD41 loop
+    attemptCounter = MAX_ATTEMPTS_COUNT;
+
     do {
         sd_cmd(55, 0, 0);
         spi_txrx(0xFF);
 
         res = sd_cmd(41, 0x40000000, 0);
         spi_txrx(0xFF);
-    } while (res != 0x00);
+    } while (attemptCounter-- != 0 && res != 0x00);
+
+    if(attemptCounter == 0) {
+    	return 2;
+    }
 
     return 0;
 }

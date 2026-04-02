@@ -1,8 +1,8 @@
-../Core/Src/sd_card/sd_spi/sd_spi.c:14:16:spi_txrx	32	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:20:6:spi_txrx_massive	32	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:24:13:spi_dummy_clocks	16	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:29:16:sd_cmd	24	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:50:9:sd_startup	16	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:79:9:sd_read_block	32	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:108:9:sd_write_block	24	static
-../Core/Src/sd_card/sd_spi/sd_spi.c:140:9:sd_read_ocr	16	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:17:16:spi_txrx	32	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:23:6:spi_txrx_massive	32	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:27:13:spi_dummy_clocks	16	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:32:16:sd_cmd	24	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:53:9:sd_startup	16	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:93:9:sd_read_block	32	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:122:9:sd_write_block	24	static
+../Core/Src/sd_card/sd_spi/sd_spi.c:154:9:sd_read_ocr	16	static

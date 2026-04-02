@@ -61,10 +61,11 @@ void writeFile(uint8_t* array, unsigned int fileSize) {
 	f_close(&file);
 }
 
-void read_file(char* fileName, void (*process)(uint8_t* data, uint32_t len)) {
+void read_file(char* fileName, void (*process)(uint8_t* data, uint32_t len, uint16_t iterationNumber)) {
     FIL file;
     UINT read;
     uint8_t buffer[MAX_LOAD_SIZE];
+    uint16_t iteration = 0;
 
     if (f_open(&file, fileName, FA_READ) != FR_OK) {
     	SEGGER_RTT_printf(0, "File \"%s\" doesn't exist\n", fileName);
@@ -78,7 +79,7 @@ void read_file(char* fileName, void (*process)(uint8_t* data, uint32_t len)) {
 
         if (read == 0) break;
 
-        process(buffer, read); // 🔥 вызов функции
+        process(buffer, read, iteration++);
     }
 
     f_close(&file);
