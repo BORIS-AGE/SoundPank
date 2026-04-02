@@ -1,0 +1,5 @@
+../Core/Src/sd_card/diskio/diskio.c:6:9:disk_initialize	2
+../Core/Src/sd_card/diskio/diskio.c:14:9:disk_status	1
+../Core/Src/sd_card/diskio/diskio.c:18:9:disk_read	3
+../Core/Src/sd_card/diskio/diskio.c:26:9:disk_write	3
+../Core/Src/sd_card/diskio/diskio.c:34:9:disk_ioctl	5

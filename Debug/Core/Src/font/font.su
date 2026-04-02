@@ -1,0 +1,2 @@
+../Core/Src/font/font.c:17:6:setTextToImage	80	dynamic
+../Core/Src/font/font.c:48:10:getElement	16	static

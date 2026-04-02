@@ -1,0 +1,7 @@
+../Core/Src/display/DISPLAY.c:19:6:displayInit	16	static
+../Core/Src/display/DISPLAY.c:50:6:displayImage	16	static
+../Core/Src/display/DISPLAY.c:65:6:displayPartOfImage	24	static
+../Core/Src/display/DISPLAY.c:77:6:displaySetWindow	32	static
+../Core/Src/display/DISPLAY.c:97:6:displayReset	8	static
+../Core/Src/display/DISPLAY.c:104:6:displaySendCommand	16	static
+../Core/Src/display/DISPLAY.c:109:6:displaySendData	16	static
