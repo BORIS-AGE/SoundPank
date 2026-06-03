@@ -1,7 +1,8 @@
-../Core/Src/display/DISPLAY.c:19:6:displayInit	1
-../Core/Src/display/DISPLAY.c:50:6:displayImage	2
-../Core/Src/display/DISPLAY.c:65:6:displayPartOfImage	1
-../Core/Src/display/DISPLAY.c:77:6:displaySetWindow	1
-../Core/Src/display/DISPLAY.c:97:6:displayReset	1
-../Core/Src/display/DISPLAY.c:104:6:displaySendCommand	1
-../Core/Src/display/DISPLAY.c:109:6:displaySendData	1
+../Core/Src/display/DISPLAY.c:16:6:displayInit	1
+../Core/Src/display/DISPLAY.c:47:6:displayImage	2
+../Core/Src/display/DISPLAY.c:63:6:displayTestImage	1
+../Core/Src/display/DISPLAY.c:88:6:displayPartOfImage	1
+../Core/Src/display/DISPLAY.c:100:6:displaySetWindow	1
+../Core/Src/display/DISPLAY.c:120:6:displayReset	1
+../Core/Src/display/DISPLAY.c:127:6:displaySendCommand	1
+../Core/Src/display/DISPLAY.c:132:6:displaySendData	1

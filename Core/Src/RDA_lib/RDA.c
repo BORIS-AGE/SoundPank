@@ -24,7 +24,7 @@ void rda_init(
 	char data[12] = {0};
 
 	// 02H
-	data[0] = 0b11000000;
+	data[0] = 0b11100000;
 	if (bassBoost) {
 		data[0] = data[0] |= 0b00010000; // enable bass boost
 	}
@@ -56,7 +56,7 @@ void rda_init(
 
 	// 05H
 	data[6] = 0b00001000; // default
-	data[7] = 0b10011011; // select antena and 2.1mA current for it. Last 4 bit - volume
+	data[7] = 0b10110111; // select antena and 2.1mA current for it. Last 4 bit - volume
 
 	// 06H
 	data[8] = 0b00000000;

@@ -9,9 +9,6 @@
 #include "SCREEN_CONFIG.h"
 extern SPI_HandleTypeDef hspiX;
 
-const uint16_t tempArray[76800];
-const uint16_t array2[76800];
-
 void displaySetWindow(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 void displaySendData(uint8_t* data, uint16_t size);
 void displaySendCommand(uint8_t cmd);
@@ -33,7 +30,7 @@ void displayInit() {
     displaySendCommand(0x3A);
     displaySendData(&data, 1);
 
-    // Memory Access Control (orientation) set to horizontal
+    // Memory Access Control (orientation) set to vertical
     data = 0b01001000;
     displaySendCommand(0x36);
     displaySendData(&data, 1);
@@ -53,6 +50,7 @@ void displayImage(uint8_t* array, uint16_t size, uint8_t isContinue) {
 	if(isContinue) {
 	    displaySendCommand(0x3C);
 	} else {
+	    displaySetWindow(0, 0, 239, 319);
 	    displaySendCommand(0x2C);
 	}
 
@@ -60,6 +58,31 @@ void displayImage(uint8_t* array, uint16_t size, uint8_t isContinue) {
 
 	HAL_GPIO_WritePin(SCREEN_CS_GPIO_Port, SCREEN_CS_Pin, GPIO_PIN_SET);
 
+}
+
+void displayTestImage() {
+	HAL_GPIO_WritePin(SCREEN_CS_GPIO_Port, SCREEN_CS_Pin, GPIO_PIN_RESET);
+
+    displaySendCommand(0x2C);
+
+//    uint32_t maxSize = 76800 * 2;
+//    uint32_t sizeToSend = 240 * 10, iterator = 0;
+//
+//    while(maxSize != 0) {
+//    	if(maxSize > sizeToSend) {
+//    		displaySendData(tempArray + ((sizeToSend / 2) * iterator) , sizeToSend);
+//    	} else {
+//    		displaySendData(tempArray  + ((sizeToSend / 2) * iterator), maxSize);
+//    	}
+//    	if(maxSize > sizeToSend) {
+//    		maxSize -= sizeToSend;
+//    	} else {
+//    		maxSize = 0;
+//    	}
+//    	iterator++;
+//    }
+
+	HAL_GPIO_WritePin(SCREEN_CS_GPIO_Port, SCREEN_CS_Pin, GPIO_PIN_SET);
 }
 
 void displayPartOfImage(uint16_t y, uint8_t* array, uint16_t size, uint16_t partHeight) {

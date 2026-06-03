@@ -24,7 +24,7 @@
 /* USER CODE BEGIN Includes */
 
 #define MAIN_TEXT_SIZE 14
-#define ADC_DMA_BUFFER_SIZE 40
+#define ADC_DMA_BUFFER_SIZE 200
 
 /* USER CODE END Includes */
 
@@ -74,11 +74,11 @@ static void MX_ADC1_Init(void);
 uint8_t isPartOfImageSent = 0;
 uint8_t mainTextBuffer[MAX_LOAD_SIZE], titleTextBuffer[MAX_LOAD_SIZE], tempBuffer[MAX_LOAD_SIZE];
 DSTATUS isSDCardInitialized = 1;
-PLAY_MODE playMode = RADIO;
-PLAY_MODE currentActivePin = BLUETOOTH;
+PLAY_MODE playMode = NONE, currentActivePin = NONE;
 const uint8_t mainTextPosition = 5, titlePosition = 1;
 uint16_t textColor = 0b000000001111, adcParamValue = 0, previousAdcParamValue = 0;
 uint16_t adcDmaBuffer[ADC_DMA_BUFFER_SIZE];
+uint8_t isPrecisionMode = 0;
 
 void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
 	if (iterationNumber == titlePosition) {
@@ -148,6 +148,21 @@ void processAdcDma(uint32_t start, uint32_t end) {
 	adcParamValue = tempParam / (ADC_DMA_BUFFER_SIZE / 4);
 }
 
+void handleCurrentActivePinsState() {
+	if(HAL_GPIO_ReadPin(IN_2_GPIO_Port, IN_2_Pin)) {
+		currentActivePin = RADIO;
+	}
+
+	if(HAL_GPIO_ReadPin(IN_3_GPIO_Port, IN_3_Pin)) {
+		currentActivePin = ANALOG;
+	}
+
+	if(HAL_GPIO_ReadPin(IN_4_GPIO_Port, IN_4_Pin)) {
+		currentActivePin = BLUETOOTH;
+	}
+	isPrecisionMode = HAL_GPIO_ReadPin(IN_1_GPIO_Port, IN_1_Pin);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -199,7 +214,7 @@ int main(void)
 
   HAL_Delay(500);
 
-  rda_init(&hi2c1, 103.8, 0, 0, 0, 0);
+  rda_init(&hi2c1, 92.5, 1, 0, 1, 0);
 
   HAL_Delay(500);
 
@@ -214,49 +229,59 @@ int main(void)
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   HAL_SPI_Init(&hspi2);
 
-  fs_list_root();
-
-  if(isSDCardInitialized == 0) {
-	  read_file("1/1.bin", sendImageToDisplay);
-  } else {
-	  SEGGER_RTT_printf(0, "Disk init failed\n");
-  }
+  fs_list_root("3");
 
   while (1)
   {
-
+//
 	  if(nextTick <= uwTick) {
-		  SEGGER_RTT_printf(0, "ADC value - %d\n", adcParamValue);
+		  char* text = "Switch 1 - %d\nSwitch 2 - %d\nSwitch 3 - %d\nSwitch 4 - %d\n";
+//		  SEGGER_RTT_printf(0, text, HAL_GPIO_ReadPin(IN_1_GPIO_Port, IN_1_Pin), HAL_GPIO_ReadPin(IN_2_GPIO_Port, IN_2_Pin), HAL_GPIO_ReadPin(IN_3_GPIO_Port, IN_3_Pin), HAL_GPIO_ReadPin(IN_4_GPIO_Port, IN_4_Pin));
+		  SEGGER_RTT_printf(0, "------------------\n");
 		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  nextTick = uwTick + 1000;
 	  }
 
+	  handleCurrentActivePinsState();
 	  if(currentActivePin != playMode) {
 		  char title[10];
+		  char* imagePath;
 
 		  switch(currentActivePin) {
 		  	  case RADIO: {
 		  		  memcpy(title, "Radio", sizeof("Radio"));
+		  		  imagePath = "1/1.bin";
 		  		  break;
 		  	  }
 		  	  case BLUETOOTH: {
 		  		  memcpy(title, "Bluetooth", sizeof("Bluetooth"));
+		  		  imagePath = "2/1.bin";
 		  		  break;
 		  	  }
 		  	  case ANALOG: {
 		  		  memcpy(title, "Analog", sizeof("Analog"));
+		  		  imagePath = "3/1.bin";
 		  		  break;
 		  	  }
 		  }
 		  playMode = currentActivePin;
+		  if(isSDCardInitialized == 0) {
+			  read_file(imagePath, sendImageToDisplay);
+			  isPartOfImageSent = 0;
+		  } else {
+			  SEGGER_RTT_printf(0, "Disk init failed\n");
+		  }
 		  updateTitleTextOnScreen();
+
 	  }
 
 
-	  if(previousAdcParamValue != adcParamValue) {
-		  previousAdcParamValue = adcParamValue;
-		  updateMainTextOnScreen();
-	  }
+//
+//
+//	  if(previousAdcParamValue != adcParamValue) {
+//		  previousAdcParamValue = adcParamValue;
+////		  updateMainTextOnScreen();
+//	  }
 
 
 
@@ -556,6 +581,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(SD_CS_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : IN_1_Pin IN_2_Pin IN_3_Pin IN_4_Pin */
+  GPIO_InitStruct.Pin = IN_1_Pin|IN_2_Pin|IN_3_Pin|IN_4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 

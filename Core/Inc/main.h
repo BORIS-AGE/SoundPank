@@ -91,6 +91,14 @@ void Error_Handler(void);
 #define SD_MISO_GPIO_Port GPIOB
 #define SD_MOSI_Pin GPIO_PIN_15
 #define SD_MOSI_GPIO_Port GPIOB
+#define IN_1_Pin GPIO_PIN_8
+#define IN_1_GPIO_Port GPIOA
+#define IN_2_Pin GPIO_PIN_9
+#define IN_2_GPIO_Port GPIOA
+#define IN_3_Pin GPIO_PIN_10
+#define IN_3_GPIO_Port GPIOA
+#define IN_4_Pin GPIO_PIN_11
+#define IN_4_GPIO_Port GPIOA
 
 /* USER CODE BEGIN Private defines */
 
@@ -98,6 +106,7 @@ typedef enum {
 	RADIO = 0,
 	BLUETOOTH = 1,
 	ANALOG = 2,
+	NONE = 3
 } PLAY_MODE;
 
 /* USER CODE END Private defines */
