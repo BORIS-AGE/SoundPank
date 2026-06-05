@@ -47,8 +47,7 @@ void setTextToImage(char* expectedText, uint16_t textSize, uint16_t scaleFactor,
 
 uint8_t* getElement(char c) {
     if (c < 32 || c > 126){
-    	SEGGER_RTT_printf(0, "invalid char\n");
-    	return charArray[0];
+    	return charArray;
     }
     return &charArray[(c - 32) * 5];
 }

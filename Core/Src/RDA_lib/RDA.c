@@ -71,7 +71,7 @@ void rda_init(
 }
 
 uint16_t calculateFrequency(float frequency) {
-	float startFrequency = 76; // 76MHz
+	float startFrequency = 76; // 76MHz max 108Mhz
 	float step = 0.1; // 100kHz
 
 	return (frequency - startFrequency) / step;

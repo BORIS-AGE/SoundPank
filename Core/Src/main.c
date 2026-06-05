@@ -25,6 +25,7 @@
 
 #define MAIN_TEXT_SIZE 14
 #define ADC_DMA_BUFFER_SIZE 200
+#define titleSize 17
 
 /* USER CODE END Includes */
 
@@ -76,9 +77,13 @@ uint8_t mainTextBuffer[MAX_LOAD_SIZE], titleTextBuffer[MAX_LOAD_SIZE], tempBuffe
 DSTATUS isSDCardInitialized = 1;
 PLAY_MODE playMode = NONE, currentActivePin = NONE;
 const uint8_t mainTextPosition = 5, titlePosition = 1;
-uint16_t textColor = 0b000000001111, adcParamValue = 0, previousAdcParamValue = 0;
+const char analogTitle[titleSize] = "Analog      %d %s";
+const char bluetoothTitle[titleSize] = "Bluetooth  %d %s";
+const char radioTitle[titleSize] = "Radio       %d %s";
+
+uint16_t textColor = 0b000000001111, adcParamValue = 0, lastAdcParamValue = 0, batteryValue = 0;
 uint16_t adcDmaBuffer[ADC_DMA_BUFFER_SIZE];
-uint8_t isPrecisionMode = 0;
+uint8_t isPrecisionMode = 0, radioHighValue = 76, radioLowValue = 0;
 
 void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
 	if (iterationNumber == titlePosition) {
@@ -91,42 +96,59 @@ void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
 	isPartOfImageSent = 1;
 }
 
-void updateTitleTextOnScreen() {
+char* updateTitleTextOnScreen() {
 
-	char title[10] = "";
-	uint16_t offset = 0;
+	char title[titleSize];
+	uint16_t offset = 40;
+
+	memset(title, ' ', sizeof(title));
 
 	switch(currentActivePin) {
 		case RADIO: {
-		  memcpy(title, "Radio", sizeof("Radio"));
-		  offset = 40;
-	 	  break;
+			strncpy(title, radioTitle, sizeof(radioTitle));
+			break;
 	  	}
 	  	case BLUETOOTH: {
-	  		memcpy(title, "Bluetooth", sizeof("Bluetooth"));
-	  		offset = 40;
+	  		strncpy(title, bluetoothTitle, sizeof(bluetoothTitle));
 	  		break;
 	  	}
 	  	case ANALOG: {
-	  		memcpy(title, "Analog", sizeof("Analog"));
-	  		offset = 30;
+	  		strncpy(title, analogTitle, sizeof(analogTitle));
 	  		break;
 	  	}
 	}
 
+	char resultTitle[titleSize];
+	memset(resultTitle, ' ', sizeof(resultTitle));
+
+	sprintf(resultTitle, title, batteryValue, "%");
+
+
+
 	memcpy(tempBuffer, titleTextBuffer, MAX_LOAD_SIZE);
-	setTextToImage(title, sizeof(title) - 1, 2, tempBuffer, offset, textColor);
+	setTextToImage(resultTitle, sizeof(resultTitle), 2, tempBuffer, offset, textColor);
 	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * titlePosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
 }
 
 void updateMainTextOnScreen() {
-	char text[8];
-	sprintf(text, "%d Hz", adcParamValue);
+	char text[9];
+	if(currentActivePin == RADIO) {
+		if (isPrecisionMode){
+			radioHighValue = (uint8_t) ((((double) adcParamValue) / 4095) * 33) + 76;
+		} else {
+			radioLowValue = (uint8_t) ((((double) adcParamValue) / 4095) * 10);
+		}
+
+		float raioValue = radioHighValue + (((float)radioLowValue) / 10);
+
+		rda_init(&hi2c1, raioValue, 1, 0, 1, 0);
+
+		sprintf(text, "%d.%d MHz", radioHighValue, radioLowValue);
+	}
 
 	memcpy(tempBuffer, mainTextBuffer, MAX_LOAD_SIZE);
-	setTextToImage(text, sizeof(text) - 1, 3, tempBuffer, 50, textColor);
+	setTextToImage(text, sizeof(text), 3, tempBuffer, 50, textColor);
 	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * mainTextPosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
-
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
@@ -145,7 +167,12 @@ void processAdcDma(uint32_t start, uint32_t end) {
 		temp += adcDmaBuffer[i + 1];
 	}
 
-	adcParamValue = tempParam / (ADC_DMA_BUFFER_SIZE / 4);
+	uint16_t tempAdcValue = tempParam / (ADC_DMA_BUFFER_SIZE / 4);
+	if (adcParamValue + 80 < tempAdcValue || tempAdcValue < adcParamValue - 80) {
+		adcParamValue = tempAdcValue;
+	}
+	double tempBattery = (((double) (temp / (ADC_DMA_BUFFER_SIZE / 4) + 60)) / 4095) * 198;
+	batteryValue = tempBattery > 90 ? (uint16_t) (((tempBattery - 90) / 36) * 100) : 0;
 }
 
 void handleCurrentActivePinsState() {
@@ -214,7 +241,7 @@ int main(void)
 
   HAL_Delay(500);
 
-  rda_init(&hi2c1, 92.5, 1, 0, 1, 0);
+  rda_init(&hi2c1, 87.8, 1, 0, 1, 0);
 
   HAL_Delay(500);
 
@@ -233,55 +260,60 @@ int main(void)
 
   while (1)
   {
-//
+
 	  if(nextTick <= uwTick) {
 		  char* text = "Switch 1 - %d\nSwitch 2 - %d\nSwitch 3 - %d\nSwitch 4 - %d\n";
 //		  SEGGER_RTT_printf(0, text, HAL_GPIO_ReadPin(IN_1_GPIO_Port, IN_1_Pin), HAL_GPIO_ReadPin(IN_2_GPIO_Port, IN_2_Pin), HAL_GPIO_ReadPin(IN_3_GPIO_Port, IN_3_Pin), HAL_GPIO_ReadPin(IN_4_GPIO_Port, IN_4_Pin));
-		  SEGGER_RTT_printf(0, "------------------\n");
+//		  SEGGER_RTT_printf(0, "BatteryValue = %d\n", batteryValue);
+//		  SEGGER_RTT_printf(0, "------------------\n");
 		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
 		  nextTick = uwTick + 1000;
+		  count++;
+	  }
+
+	  if (count % 5 == 0) {
+		  updateTitleTextOnScreen();
+		  count++;
 	  }
 
 	  handleCurrentActivePinsState();
 	  if(currentActivePin != playMode) {
-		  char title[10];
+		  playMode = currentActivePin;
 		  char* imagePath;
 
 		  switch(currentActivePin) {
-		  	  case RADIO: {
-		  		  memcpy(title, "Radio", sizeof("Radio"));
-		  		  imagePath = "1/1.bin";
-		  		  break;
-		  	  }
-		  	  case BLUETOOTH: {
-		  		  memcpy(title, "Bluetooth", sizeof("Bluetooth"));
-		  		  imagePath = "2/1.bin";
-		  		  break;
-		  	  }
-		  	  case ANALOG: {
-		  		  memcpy(title, "Analog", sizeof("Analog"));
-		  		  imagePath = "3/1.bin";
-		  		  break;
-		  	  }
+			case RADIO: {
+				imagePath = "1/1.bin";
+				break;
+			}
+			case BLUETOOTH: {
+				imagePath = "2/1.bin";
+				break;
+			}
+			case ANALOG: {
+				imagePath = "3/1.bin";
+				break;
+			}
 		  }
-		  playMode = currentActivePin;
-		  if(isSDCardInitialized == 0) {
-			  read_file(imagePath, sendImageToDisplay);
-			  isPartOfImageSent = 0;
-		  } else {
-			  SEGGER_RTT_printf(0, "Disk init failed\n");
-		  }
-		  updateTitleTextOnScreen();
 
+		  if(isSDCardInitialized == 0) {
+			read_file(imagePath, sendImageToDisplay);
+			isPartOfImageSent = 0;
+		  } else {
+			SEGGER_RTT_printf(0, "Disk init failed\n");
+		  }
+
+		  updateTitleTextOnScreen();
+		  updateMainTextOnScreen();
 	  }
 
 
 //
 //
-//	  if(previousAdcParamValue != adcParamValue) {
-//		  previousAdcParamValue = adcParamValue;
-////		  updateMainTextOnScreen();
-//	  }
+	  if(lastAdcParamValue != adcParamValue) {
+		  lastAdcParamValue = adcParamValue;
+		  updateMainTextOnScreen();
+	  }
 
 
 
