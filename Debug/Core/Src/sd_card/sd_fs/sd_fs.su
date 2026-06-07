@@ -1,3 +1,3 @@
 ../Core/Src/sd_card/sd_fs/sd_fs.c:17:6:fs_list_root	16	static
-../Core/Src/sd_card/sd_fs/sd_fs.c:42:6:writeFile	592	static
-../Core/Src/sd_card/sd_fs/sd_fs.c:64:6:read_file	12592	static
+../Core/Src/sd_card/sd_fs/sd_fs.c:44:6:writeFile	592	static
+../Core/Src/sd_card/sd_fs/sd_fs.c:66:6:read_file	12592	static

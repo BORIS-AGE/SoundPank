@@ -50,6 +50,8 @@ DMA_HandleTypeDef hdma_adc1;
 
 I2C_HandleTypeDef hi2c1;
 
+RTC_HandleTypeDef hrtc;
+
 SPI_HandleTypeDef hspi1;
 SPI_HandleTypeDef hspi2;
 
@@ -65,6 +67,7 @@ static void MX_I2C1_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_SPI2_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_RTC_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -73,17 +76,19 @@ static void MX_ADC1_Init(void);
 /* USER CODE BEGIN 0 */
 
 uint8_t isPartOfImageSent = 0;
-uint8_t mainTextBuffer[MAX_LOAD_SIZE], titleTextBuffer[MAX_LOAD_SIZE], tempBuffer[MAX_LOAD_SIZE];
+uint8_t mainTextBuffer[MAX_LOAD_SIZE], titleTextBuffer[MAX_LOAD_SIZE], subTextBuffer[MAX_LOAD_SIZE], tempBuffer[MAX_LOAD_SIZE];
 DSTATUS isSDCardInitialized = 1;
 PLAY_MODE playMode = NONE, currentActivePin = NONE;
-const uint8_t mainTextPosition = 5, titlePosition = 1;
+const uint8_t mainTextPosition = 3, subtextPosition = 11, titlePosition = 1;
 const char analogTitle[titleSize] = "Analog      %d %s";
 const char bluetoothTitle[titleSize] = "Bluetooth  %d %s";
 const char radioTitle[titleSize] = "Radio       %d %s";
 
 uint16_t textColor = 0b000000001111, adcParamValue = 0, lastAdcParamValue = 0, batteryValue = 0;
 uint16_t adcDmaBuffer[ADC_DMA_BUFFER_SIZE];
-uint8_t isPrecisionMode = 0, radioHighValue = 76, radioLowValue = 0;
+uint8_t isPrecisionMode = 0, radioHighValue = 76, radioLowValue = 0, lastMinuteValue = 0;
+RTC_TimeTypeDef sTime;
+RTC_DateTypeDef sDate;
 
 void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
 	if (iterationNumber == titlePosition) {
@@ -91,6 +96,9 @@ void sendImageToDisplay(uint8_t* data, uint32_t len, uint16_t iterationNumber) {
 	}
 	if (iterationNumber == mainTextPosition) {
 		memcpy(mainTextBuffer, data, MAX_LOAD_SIZE);
+	}
+	if (iterationNumber == subtextPosition) {
+		memcpy(subTextBuffer, data, MAX_LOAD_SIZE);
 	}
 	displayImage(data, len, isPartOfImageSent);
 	isPartOfImageSent = 1;
@@ -123,32 +131,43 @@ char* updateTitleTextOnScreen() {
 
 	sprintf(resultTitle, title, batteryValue, "%");
 
-
-
 	memcpy(tempBuffer, titleTextBuffer, MAX_LOAD_SIZE);
 	setTextToImage(resultTitle, sizeof(resultTitle), 2, tempBuffer, offset, textColor);
 	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * titlePosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
 }
 
 void updateMainTextOnScreen() {
-	char text[9];
-	if(currentActivePin == RADIO) {
-		if (isPrecisionMode){
-			radioHighValue = (uint8_t) ((((double) adcParamValue) / 4095) * 33) + 76;
-		} else {
-			radioLowValue = (uint8_t) ((((double) adcParamValue) / 4095) * 10);
-		}
+	char text[20];
+	uint16_t imageOffsetX = 0, textSize = 1;
+	memset(text, ' ', sizeof(text));
 
+	if(currentActivePin == RADIO) {
 		float raioValue = radioHighValue + (((float)radioLowValue) / 10);
 
 		rda_init(&hi2c1, raioValue, 1, 0, 1, 0);
 
 		sprintf(text, "%d.%d MHz", radioHighValue, radioLowValue);
+		imageOffsetX = 50;
+		textSize = 3;
+	} else {
+		sprintf(text, "%02d:%02d", sTime.Hours, sTime.Minutes);
+		imageOffsetX = 75;
+		textSize = 3;
 	}
 
 	memcpy(tempBuffer, mainTextBuffer, MAX_LOAD_SIZE);
-	setTextToImage(text, sizeof(text), 3, tempBuffer, 50, textColor);
+	setTextToImage(text, sizeof(text), textSize, tempBuffer, imageOffsetX, textColor);
 	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * mainTextPosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
+}
+
+void updateDateOnScreen() {
+	char text[20];
+	memset(text, ' ', sizeof(text));
+	sprintf(text, "%02d:%02d:%d", sDate.Date, sDate.Month, ((uint16_t) sDate.Year) + 2000);
+
+	memcpy(tempBuffer, subTextBuffer, MAX_LOAD_SIZE);
+	setTextToImage(text, sizeof(text), 2, tempBuffer, 100, textColor);
+	displayPartOfImage((IMAGE_HEIGHT_PIXELS / 2) * subtextPosition, tempBuffer, MAX_LOAD_SIZE, IMAGE_HEIGHT_PIXELS);
 }
 
 void HAL_ADC_ConvHalfCpltCallback(ADC_HandleTypeDef* hadc) {
@@ -190,6 +209,23 @@ void handleCurrentActivePinsState() {
 	isPrecisionMode = HAL_GPIO_ReadPin(IN_1_GPIO_Port, IN_1_Pin);
 }
 
+void updateTime() {
+	HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+	HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+	if (isPrecisionMode) {
+		sTime.Minutes = (uint8_t) ((((double) adcParamValue) / 4095) * 61);
+	}else{
+		sTime.Hours = (uint8_t) ((((double) adcParamValue) / 4095) * 25);
+	}
+
+    sTime.Seconds = 0;
+
+    HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+
+    HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -227,6 +263,7 @@ int main(void)
   MX_SPI2_Init();
   MX_FATFS_Init();
   MX_ADC1_Init();
+  MX_RTC_Init();
   /* USER CODE BEGIN 2 */
 
   SEGGER_RTT_Init();
@@ -243,7 +280,8 @@ int main(void)
 
   rda_init(&hi2c1, 87.8, 1, 0, 1, 0);
 
-  HAL_Delay(500);
+  radioHighValue = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR2);
+  radioLowValue = HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR3);
 
   displayInit();
 
@@ -256,22 +294,27 @@ int main(void)
   hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   HAL_SPI_Init(&hspi2);
 
-  fs_list_root("3");
+  fs_list_root("");
+
+  HAL_Delay(500);
 
   while (1)
   {
 
 	  if(nextTick <= uwTick) {
-		  char* text = "Switch 1 - %d\nSwitch 2 - %d\nSwitch 3 - %d\nSwitch 4 - %d\n";
-//		  SEGGER_RTT_printf(0, text, HAL_GPIO_ReadPin(IN_1_GPIO_Port, IN_1_Pin), HAL_GPIO_ReadPin(IN_2_GPIO_Port, IN_2_Pin), HAL_GPIO_ReadPin(IN_3_GPIO_Port, IN_3_Pin), HAL_GPIO_ReadPin(IN_4_GPIO_Port, IN_4_Pin));
-//		  SEGGER_RTT_printf(0, "BatteryValue = %d\n", batteryValue);
-//		  SEGGER_RTT_printf(0, "------------------\n");
-		  HAL_GPIO_TogglePin(LED_GPIO_Port, LED_Pin);
+		  HAL_RTC_GetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+		  HAL_RTC_GetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+		  if(sTime.Minutes != lastMinuteValue && currentActivePin != RADIO){
+			  lastMinuteValue = sTime.Minutes;
+			  updateMainTextOnScreen();
+		  }
+
 		  nextTick = uwTick + 1000;
 		  count++;
 	  }
 
-	  if (count % 5 == 0) {
+	  if (count % 5 == 0) { // update battery percentage
 		  updateTitleTextOnScreen();
 		  count++;
 	  }
@@ -283,7 +326,7 @@ int main(void)
 
 		  switch(currentActivePin) {
 			case RADIO: {
-				imagePath = "1/1.bin";
+				imagePath = "1/2.bin";
 				break;
 			}
 			case BLUETOOTH: {
@@ -291,7 +334,7 @@ int main(void)
 				break;
 			}
 			case ANALOG: {
-				imagePath = "3/1.bin";
+				imagePath = "3/3.bin";
 				break;
 			}
 		  }
@@ -305,14 +348,29 @@ int main(void)
 
 		  updateTitleTextOnScreen();
 		  updateMainTextOnScreen();
+		  updateDateOnScreen();
 	  }
 
 
-//
-//
 	  if(lastAdcParamValue != adcParamValue) {
+	  	  if (lastAdcParamValue != 0) {
+	  		  if (currentActivePin == RADIO) {
+	  			  if (isPrecisionMode) {
+	  				  radioHighValue = (uint8_t) ((((double) adcParamValue) / 4095) * 33) + 76;
+	  			  } else {
+	  				  radioLowValue = (uint8_t) ((((double) adcParamValue) / 4095) * 10);
+	  			  }
+	  			  HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR2, radioHighValue);
+	  			  HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR3, radioLowValue);
+			  	  updateMainTextOnScreen();
+	  		  }
+
+			  if (currentActivePin == ANALOG) {
+			  	  updateTime();
+			  	  updateMainTextOnScreen();
+		  	  }
+		  }
 		  lastAdcParamValue = adcParamValue;
-		  updateMainTextOnScreen();
 	  }
 
 
@@ -341,8 +399,9 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE|RCC_OSCILLATORTYPE_LSE;
   RCC_OscInitStruct.HSEState = RCC_HSE_ON;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
   RCC_OscInitStruct.PLL.PLLM = 12;
@@ -461,6 +520,68 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief RTC Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_RTC_Init(void)
+{
+
+  /* USER CODE BEGIN RTC_Init 0 */
+
+  /* USER CODE END RTC_Init 0 */
+
+  RTC_TimeTypeDef sTime = {0};
+  RTC_DateTypeDef sDate = {0};
+
+  /* USER CODE BEGIN RTC_Init 1 */
+
+  /* USER CODE END RTC_Init 1 */
+
+  /** Initialize RTC Only
+  */
+  hrtc.Instance = RTC;
+  hrtc.Init.HourFormat = RTC_HOURFORMAT_24;
+  hrtc.Init.AsynchPrediv = 127;
+  hrtc.Init.SynchPrediv = 255;
+  hrtc.Init.OutPut = RTC_OUTPUT_DISABLE;
+  hrtc.Init.OutPutPolarity = RTC_OUTPUT_POLARITY_HIGH;
+  hrtc.Init.OutPutType = RTC_OUTPUT_TYPE_OPENDRAIN;
+  if (HAL_RTC_Init(&hrtc) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /* USER CODE BEGIN Check_RTC_BKUP */
+  if (HAL_RTCEx_BKUPRead(&hrtc, RTC_BKP_DR1) != 0x7777)
+  {
+      sTime.Hours = 17;
+      sTime.Minutes = 46;
+      sTime.Seconds = 0;
+
+      HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BIN);
+
+      sDate.WeekDay = RTC_WEEKDAY_SUNDAY;
+      sDate.Month = RTC_MONTH_JUNE;
+      sDate.Date = 7;
+      sDate.Year = 26;
+
+      HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BIN);
+
+      HAL_RTCEx_BKUPWrite(&hrtc, RTC_BKP_DR1, 0x7777);
+  }
+  /* USER CODE END Check_RTC_BKUP */
+
+  /** Initialize RTC and set the Time and Date
+  */
+
+  /* USER CODE BEGIN RTC_Init 2 */
+
+  /* USER CODE END RTC_Init 2 */
 
 }
 
