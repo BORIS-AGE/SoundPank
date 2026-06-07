@@ -32,6 +32,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h \
  ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h \
+ ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h \
+ ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h \
  E:/progs/STM32/Projects/SoundPunk/Core/Src/Segger/SEGGER_RTT.h \
  E:/progs/STM32/Projects/SoundPunk/Core/Src/Segger/SEGGER_RTT_Conf.h \
  E:/progs/STM32/Projects/SoundPunk/Core/Src/RDA_lib/RDA.h \
@@ -78,6 +80,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_rtc_ex.h:
 ../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_spi.h:
+../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim.h:
+../Drivers/STM32F4xx_HAL_Driver/Inc/stm32f4xx_hal_tim_ex.h:
 E:/progs/STM32/Projects/SoundPunk/Core/Src/Segger/SEGGER_RTT.h:
 E:/progs/STM32/Projects/SoundPunk/Core/Src/Segger/SEGGER_RTT_Conf.h:
 E:/progs/STM32/Projects/SoundPunk/Core/Src/RDA_lib/RDA.h:
